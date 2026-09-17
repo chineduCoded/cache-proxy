@@ -1,10 +1,8 @@
-from __future__ import annotations
-
 import asyncio
 import time
 from collections import OrderedDict
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional
 
 from app.cache.entry import CacheEntry
 
@@ -31,14 +29,14 @@ class AsyncTTLLRUCache:
             raise ValueError("default_ttl_seconds must be positive")
         self._max_entries = max_entries
         self._default_ttl = default_ttl_seconds
-        self._data: "OrderedDict[str, CacheEntry]" = OrderedDict()
+        self._data: OrderedDict[str, CacheEntry] = OrderedDict()
         self._data_lock = asyncio.Lock()
         # Per-key locks so concurrent misses for the *same* key serialize,
         # while misses for *different* keys don't block each other.
         self._key_locks: dict[str, tuple[asyncio.Lock, int]] = {}
         self._key_locks_guard = asyncio.Lock()
 
-    async def get(self, key: str) -> Optional[CacheEntry]:
+    async def get(self, key: str) -> CacheEntry | None:
         now = time.monotonic()
         async with self._data_lock:
             entry = self._data.get(key)
@@ -82,5 +80,5 @@ class AsyncTTLLRUCache:
                 else:
                     self._key_locks[key] = (existing_lock, refcount - 1)
 
-    def ttl_for(self, override_seconds: Optional[float] = None) -> float:
+    def ttl_for(self, override_seconds: float | None = None) -> float:
         return override_seconds if override_seconds is not None else self._default_ttl

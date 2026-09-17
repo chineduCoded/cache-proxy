@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import logging
 import time
@@ -132,11 +130,9 @@ class ProxyService:
             return False
         # Never cache anything that carries a Set-Cookie — it's tied to a
         # specific caller's session, not to the URL.
-        if "set-cookie" in {h.lower() for h in upstream.headers.keys()}:
+        if "set-cookie" in {h.lower() for h in upstream.headers}:
             return False
-        if len(upstream.content) > self._settings.cache_max_item_bytes:
-            return False
-        return True
+        return len(upstream.content) <= self._settings.cache_max_item_bytes
 
     @staticmethod
     def _response_from_entry(entry: CacheEntry, *, cache_status: str) -> Response:
