@@ -79,7 +79,7 @@ class RedisRateLimiter:
 
     async def allow(self, key: str) -> bool:
         redis_key = self._key(key)
-        count = await self._redis.incr(redis_key)
+        count = int(await self._redis.incr(redis_key))
 
         if count == 1:
             await self._redis.expire(redis_key, int(self._window_seconds) + 1)
