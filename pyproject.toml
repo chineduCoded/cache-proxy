@@ -1,45 +1,32 @@
-[tool.poetry]
-name = "caching-proxy"
+[project]
+name = "cache-proxy"
 version = "0.1.0"
-description = "CLI tool that starts a caching proxy server, it will forward requests to the actual server and cache the responses."
-authors = ["chineduCoded <chinedujohn17@gmail.com>"]
+description = "CLI tool that starts a caching proxy server"
+authors = [
+    {name = "chineduCoded",email = "chinedujohn17@gmail.com"}
+]
 readme = "README.md"
-packages = [
-    { include = "app", from = "." }
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard] (>=0.141.1,<0.142.0)",
+    "redis[hiredis] (>=8.1.0,<9.0.0)",
+    "prometheus-client (>=0.26.0,<0.27.0)"
 ]
 
-[tool.poetry.scripts]
-caching-proxy = "app.cli:cli"
+[tool.poetry]
+packages = [
+    { include = "app" }
+]
 
-[tool.poetry.dependencies]
-python = "^3.13"
-fastapi = {extras = ["standard"], version = "^0.141.1"}
-httpx = "^0.28.1"
-httpx2 = "^2.13.0"
-redis = {extras = ["hiredis"], version = "^8.1.0"}
-booktype = "^1.5"
-pydantic-settings = "^2.15.0"
-prometheus-client = "^0.26.0"
-
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.3"
-pytest-anyio = "^0.0.0"
-mypy = "^2.3.1"
-ruff = "^0.16.8"
-
-[tool.mypy]
-python_version = "3.13"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-
-[[tool.mypy.overrides]]
-module = ["redis", "redis.*"]
-follow_imports = "skip"
-ignore_missing_imports = true
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest-anyio (>=0.0.0,<0.0.1)",
+    "ruff (>=0.16.8,<0.17.0)",
+    "mypy (>=2.3.1,<3.0.0)",
+    "pytest (>=9.1.1,<10.0.0)"
+]
