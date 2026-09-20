@@ -13,6 +13,9 @@ dependencies = [
     "prometheus-client (>=0.26.0,<0.27.0)"
 ]
 
+[project.scripts]
+caching-proxy = "app.cli:cli"
+
 [tool.poetry]
 packages = [
     { include = "app" }
