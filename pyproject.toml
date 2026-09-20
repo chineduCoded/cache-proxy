@@ -16,6 +16,10 @@ python = "^3.13"
 fastapi = {extras = ["standard"], version = "^0.141.1"}
 httpx = "^0.28.1"
 httpx2 = "^2.13.0"
+redis = {extras = ["hiredis"], version = "^8.1.0"}
+booktype = "^1.5"
+pydantic-settings = "^2.15.0"
+prometheus-client = "^0.26.0"
 
 
 [tool.poetry.group.dev.dependencies]

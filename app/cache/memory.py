@@ -4,22 +4,21 @@ from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from app.cache.backend import CacheBackend
 from app.cache.entry import CacheEntry
 
 
-class AsyncTTLLRUCache:
-    """An in-memory cache bounded by both entry count (LRU eviction) and
+class InMemoryCache(CacheBackend):
+    """An in-process cache bounded by both entry count (LRU eviction) and
     per-entry TTL.
 
-    Two things the original module-level ``dict`` cache didn't have, and
-    that any production cache needs:
-
-    1. **A size bound.** Without one, an attacker (or just organic traffic
-       against a large origin) can grow the cache without limit until the
-       process is OOM-killed.
-    2. **Per-key locking for stampede protection.** Without it, N
-       concurrent requests for the same cold URL all miss the cache and
-       all hit the origin at once.
+    This is the zero-setup default. It has one hard limitation that's
+    inherent to the approach, not a bug: it is **per-process**. Running
+    more than one replica of the proxy behind a load balancer gives each
+    replica its own independent, inconsistent cache — a request that's a
+    HIT on replica A may be a MISS on replica B. For a single instance (or
+    for horizontal scaling where that's acceptable) this is the simplest
+    correct choice; for anything else, use `RedisCache` instead.
     """
 
     def __init__(self, *, max_entries: int, default_ttl_seconds: float) -> None:
@@ -29,7 +28,7 @@ class AsyncTTLLRUCache:
             raise ValueError("default_ttl_seconds must be positive")
         self._max_entries = max_entries
         self._default_ttl = default_ttl_seconds
-        self._data: OrderedDict[str, CacheEntry] = OrderedDict()
+        self._data: OrderedDict[str, tuple[CacheEntry, float]] = OrderedDict()
         self._data_lock = asyncio.Lock()
         # Per-key locks so concurrent misses for the *same* key serialize,
         # while misses for *different* keys don't block each other.
@@ -39,18 +38,20 @@ class AsyncTTLLRUCache:
     async def get(self, key: str) -> CacheEntry | None:
         now = time.monotonic()
         async with self._data_lock:
-            entry = self._data.get(key)
-            if entry is None:
+            item = self._data.get(key)
+            if item is None:
                 return None
-            if entry.is_expired(now):
+            entry, expires_at = item
+            if now >= expires_at:
                 del self._data[key]
                 return None
             self._data.move_to_end(key)
             return entry
 
-    async def set(self, key: str, entry: CacheEntry) -> None:
+    async def set(self, key: str, entry: CacheEntry, *, ttl_seconds: float) -> None:
+        ttl = ttl_seconds if ttl_seconds > 0 else self._default_ttl
         async with self._data_lock:
-            self._data[key] = entry
+            self._data[key] = (entry, time.monotonic() + ttl)
             self._data.move_to_end(key)
             while len(self._data) > self._max_entries:
                 self._data.popitem(last=False)  # evict least-recently-used
@@ -59,8 +60,11 @@ class AsyncTTLLRUCache:
         async with self._data_lock:
             self._data.clear()
 
-    def __len__(self) -> int:
+    async def size(self) -> int:
         return len(self._data)
+
+    async def ready(self) -> bool:
+        return True  # nothing external to be unready
 
     @asynccontextmanager
     async def lock_for(self, key: str) -> AsyncIterator[None]:
@@ -79,6 +83,3 @@ class AsyncTTLLRUCache:
                     del self._key_locks[key]
                 else:
                     self._key_locks[key] = (existing_lock, refcount - 1)
-
-    def ttl_for(self, override_seconds: float | None = None) -> float:
-        return override_seconds if override_seconds is not None else self._default_ttl

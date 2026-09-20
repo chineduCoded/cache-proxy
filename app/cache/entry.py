@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,7 +14,3 @@ class CacheEntry:
     headers: tuple[tuple[str, str], ...]
     content: bytes
     media_type: str | None
-    expires_at: float = field(compare=False)
-
-    def is_expired(self, now: float) -> bool:
-        return now >= self.expires_at
